@@ -15,7 +15,7 @@ try:
 except:
     import simplejson as json
 
-addon = xbmcaddon.Addon('plugin.video.live.streams')
+addon = xbmcaddon.Addon('plugin.video.live.streams-regex')
 profile = addon.getAddonInfo('profile').decode('utf-8')
 home = addon.getAddonInfo('path').decode('utf-8')
 favorites = xbmc.translatePath(os.path.join(profile, 'favorites' )).decode('utf-8')
