@@ -435,6 +435,22 @@ def getItems(items,fanart):
                     raise
             except:
                 date = ''
+
+            try:
+                regexs = {}
+                for i in item('regex'):
+                    regexs[i('name')[0].string] = {}
+                    regexs[i('name')[0].string]['expre'] = i('expres')[0].string
+                    regexs[i('name')[0].string]['page'] = i('page')[0].string
+                backUpUrl = url
+                try:
+                    url = getRegexParsed(regexs, url)
+                except:
+                    url = backUpUrl
+
+            except:
+                print '---- regex Error ----'+name
+
             try:
                 if len(url) > 1:
                     alt = 0
@@ -451,6 +467,29 @@ def getItems(items,fanart):
                     addLink(url[0],name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True)
             except:
                 print 'There was a problem adding link - '+name.encode('utf-8', 'ignore')
+
+def getRegexParsed(regexs, url):
+        regexedUrls = []
+        cachedPages = {}
+        for i in url:
+            doRegexs = re.compile('\$doregex\[([^\]]*)\]', re.DOTALL).findall(i)
+            for k in doRegexs:
+                if k in regexs:
+                    m = regexs[k]
+                    if m['page'] in cachedPages:
+                        link = cachedPages[m['page']]
+                    else:
+                        req = urllib2.Request(m['page'])
+                        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; rv:14.0) Gecko/20100101 Firefox/14.0.1')
+                        response = urllib2.urlopen(req)
+                        link = response.read()
+                        response.close()
+                        cachedPages[m['page']] = link
+                    reg = re.compile(m['expre']).search(link)
+                    i = i.replace("$doregex[" + k + "]", reg.group(1).strip())
+            regexedUrls.append(i)
+        return regexedUrls
+
 
 
 def get_params():
