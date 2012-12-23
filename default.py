@@ -405,6 +405,10 @@ def getItems(items,fanart):
                     regexs[i('name')[0].string] = {}
                     regexs[i('name')[0].string]['expre'] = i('expres')[0].string
                     regexs[i('name')[0].string]['page'] = i('page')[0].string
+                    try:
+                        regexs[i('name')[0].string]['refer'] = i('referer')[0].string
+                    except:
+                        print "Regex: -- No Referer --"
                 backUpUrl = url
                 try:
                     url = getRegexParsed(regexs, url)
@@ -441,6 +445,8 @@ def getRegexParsed(regexs, url):
                     else:
                         req = urllib2.Request(m['page'])
                         req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; rv:14.0) Gecko/20100101 Firefox/14.0.1')
+                        if 'refer' in m:
+                            req.add_header('Referer', m['refer'])
                         response = urllib2.urlopen(req)
                         link = response.read()
                         response.close()
