@@ -15,7 +15,7 @@ try:
 except:
     import simplejson as json
 
-addon = xbmcaddon.Addon('plugin.video.live.streams-regex')
+addon = xbmcaddon.Addon('plugin.video.live.streams')
 profile = addon.getAddonInfo('profile').decode('utf-8')
 home = addon.getAddonInfo('path').decode('utf-8')
 favorites = xbmc.translatePath(os.path.join(profile, 'favorites' )).decode('utf-8')
@@ -37,6 +37,7 @@ def makeRequest(url):
             response.close()
             return data
         except urllib2.URLError, e:
+            print 'URL: '+url
             if hasattr(e, 'code'):
                 print 'We failed with error code - %s.' % e.code
                 xbmc.executebuiltin("XBMC.Notification(LiveStreams,We failed with error code - "+str(e.code)+",10000,"+icon+")")
@@ -45,19 +46,19 @@ def makeRequest(url):
                 print 'Reason: ', e.reason
                 xbmc.executebuiltin("XBMC.Notification(LiveStreams,We failed to reach a server. - "+str(e.reason)+",10000,"+icon+")")
 
+
 def getSources():
+        if addon.getSetting("browse_xml_database") == "true":
+            addDir('XML Database','http://xbmcplus.xb.funpic.de/up/data/files/',15,icon,fanart,'','','')
         if os.path.exists(favorites)==True:
             addDir('Favorites','url',4,xbmc.translatePath(os.path.join(home, 'resources', 'favorite.png')),fanart,'','','',False)
-        if os.path.exists(source_file)==False:
-            xbmc.executebuiltin("XBMC.Notification(LiveStreams,Choose type source and then select Add Source.,15000,"+icon+")")
-            addon.openSettings()
-            return
-        sources = json.loads(open(source_file,"r").read())
-        if len(sources) > 1:
-            for i in sources:
-                addDir(i[0],i[1].encode('utf-8'),1,icon,fanart,'','','')
-        else:
-            getData(sources[0][1],fanart)
+        if os.path.exists(source_file)==True:
+            sources = json.loads(open(source_file,"r").read())
+            if len(sources) > 1:
+                for i in sources:
+                    addDir(i[0],i[1].encode('utf-8'),1,icon,fanart,'','','')
+            else:
+                getData(sources[0][1],fanart)
 
 
 def addSource(url=None):
@@ -100,6 +101,10 @@ def addSource(url=None):
         addon.setSetting('new_url_source', "")
         addon.setSetting('new_file_source', "")
         xbmc.executebuiltin("XBMC.Notification(LiveStreams,New source added.,5000,"+icon+")")
+        if not url is None:
+            if 'xbmcplus.xb.funpic.de' in url:
+                xbmc.executebuiltin("XBMC.Container.Update(%s?mode=14,replace)" %sys.argv[0])
+        else: addon.openSettings()
 
 
 def rmSource(name):
@@ -110,8 +115,35 @@ def rmSource(name):
                 b = open(source_file,"w")
                 b.write(json.dumps(sources))
                 b.close()
-                return
+                break
 
+                
+def get_xml_database(url, browse=False):
+        if url is None:
+            url = 'http://xbmcplus.xb.funpic.de/up/data/files/'
+        soup = BeautifulSoup(makeRequest(url), convertEntities=BeautifulSoup.HTML_ENTITIES)
+        for i in soup('a'):
+            href = i['href']
+            if not href.startswith('?'):
+                name = i.string
+                if name not in ['Parent Directory', 'recycle_bin/']:
+                    if href.endswith('/'):
+                        if browse:
+                            addDir(name,url+href,15,icon,fanart,'','','',False)
+                        else:
+                            addDir(name,url+href,14,icon,fanart,'','','',False)
+                    elif href.endswith('.xml'):
+                        if browse:
+                            addDir(name,url+href,1,icon,fanart,'','','',False)
+                        else:
+                            if os.path.exists(source_file)==True:
+                                if name in SOURCES:
+                                    addDir(name+' (in use)',url+href,11,icon,fanart,'','','',False)
+                                else:
+                                    addDir(name,url+href,11,icon,fanart,'','','',False)
+                            else:
+                                addDir(name,url+href,11,icon,fanart,'','','',False)
+                
 
 def getCommunitySources():
         url = 'http://community-links.googlecode.com/svn/trunk/'
@@ -126,7 +158,10 @@ def getCommunitySources():
 def checkForUpdate():
         url = 'http://community-links.googlecode.com/svn/trunk/'
         data = makeRequest(url)
-        revision = re.compile('<html><head><title>(.+?)/trunk</title></head>').findall(data)[0]
+        try:
+            revision = re.compile('<html><head><title>(.+?)/trunk</title></head>').findall(data)[0]
+        except TypeError:
+            return
         if xbmcvfs.exists(REV):
             R = open(REV,"r")
             rev = R.read()
@@ -340,6 +375,8 @@ def getItems(items,fanart):
         for item in items:
             try:
                 name = item('title')[0].string
+                if name is None:
+                    name = 'unknown?'
             except:
                 print '-----Name Error----'
                 name = ''
@@ -398,64 +435,22 @@ def getItems(items,fanart):
                     raise
             except:
                 date = ''
-
-            try:
-                regexs = {}
-                for i in item('regex'):
-                    regexs[i('name')[0].string] = {}
-                    regexs[i('name')[0].string]['expre'] = i('expres')[0].string
-                    regexs[i('name')[0].string]['page'] = i('page')[0].string
-                    try:
-                        regexs[i('name')[0].string]['refer'] = i('referer')[0].string
-                    except:
-                        print "Regex: -- No Referer --"
-                backUpUrl = url
-                try:
-                    url = getRegexParsed(regexs, url)
-                except:
-                    url = backUpUrl
-
-            except:
-                print '---- regex Error ----'+name
-
             try:
                 if len(url) > 1:
                     alt = 0
                     playlist = []
                     for i in url:
                         playlist.append(i)
-                    for i in url:
-                        alt += 1
-                        addLink(i,'%s) %s' %(str(alt), name.encode('utf-8', 'ignore')),thumbnail,fanArt,desc,genre,date,True,playlist)
+                    if addon.getSetting('add_playlist') == "false":
+                        for i in url:
+                            alt += 1
+                            addLink(i,'%s) %s' %(str(alt), name.encode('utf-8', 'ignore')),thumbnail,fanArt,desc,genre,date,True,playlist)
+                    else:
+                        addLink('', name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True,playlist)                    
                 else:
                     addLink(url[0],name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True)
             except:
                 print 'There was a problem adding link - '+name.encode('utf-8', 'ignore')
-
-def getRegexParsed(regexs, url):
-        regexedUrls = []
-        cachedPages = {}
-        for i in url:
-            doRegexs = re.compile('\$doregex\[([^\]]*)\]', re.DOTALL).findall(i)
-            for k in doRegexs:
-                if k in regexs:
-                    m = regexs[k]
-                    if m['page'] in cachedPages:
-                        link = cachedPages[m['page']]
-                    else:
-                        req = urllib2.Request(m['page'])
-                        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; rv:14.0) Gecko/20100101 Firefox/14.0.1')
-                        if 'refer' in m:
-                            req.add_header('Referer', m['refer'])
-                        response = urllib2.urlopen(req)
-                        link = response.read()
-                        response.close()
-                        cachedPages[m['page']] = link
-                    reg = re.compile(m['expre']).search(link)
-                    i = i.replace("$doregex[" + k + "]", reg.group(1).strip())
-            regexedUrls.append(i)
-        return regexedUrls
-
 
 
 def get_params():
@@ -520,7 +515,7 @@ def rmFavorite(name):
                 b = open(favorites, "w")
                 b.write(json.dumps(data))
                 b.close()
-                return
+                break
 
 
 def play_playlist(name, list):
@@ -552,7 +547,14 @@ def addDir(name,url,mode,iconimage,fanart,description,genre,date,showcontext=Tru
 
 
 def addLink(url,name,iconimage,fanart,description,genre,date,showcontext=True,playlist=None):
-        u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode=12"
+        u=sys.argv[0]+"?"
+        if not playlist is None:
+            if addon.getSetting('add_playlist') == "false":
+                u += "url="+urllib.quote_plus(url)+"&mode=12"
+            else:
+                u += "mode=13&name=%s&playlist=%s" %(urllib.quote_plus(name), urllib.quote_plus(str(playlist).replace(',','|')))
+        else:
+            u += "url="+urllib.quote_plus(url)+"&mode=12"
         ok=True
         liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
         liz.setInfo( type="Video", infoLabels={ "Title": name, "Plot": description, "Genre": genre, "Date": date } )
@@ -568,9 +570,10 @@ def addLink(url,name,iconimage,fanart,description,genre,date,showcontext=True,pl
                 contextMenu = [('Add to LiveStreams Favorites','XBMC.Container.Update(%s?mode=5&name=%s&url=%s&iconimage=%s&fanart=%s)' %(sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(url), urllib.quote_plus(iconimage), urllib.quote_plus(fanart)))]
             liz.addContextMenuItems(contextMenu)
         if not playlist is None:
-            playlist_name = name.split(') ')[1]
-            contextMenu_ = [('Play '+playlist_name+' PlayList','XBMC.RunPlugin(%s?mode=13&name=%s&playlist=%s)' %(sys.argv[0], urllib.quote_plus(playlist_name), urllib.quote_plus(str(playlist).replace(',','|'))))]
-            liz.addContextMenuItems(contextMenu_)
+            if addon.getSetting('add_playlist') == "false":
+                playlist_name = name.split(') ')[1]
+                contextMenu_ = [('Play '+playlist_name+' PlayList','XBMC.RunPlugin(%s?mode=13&name=%s&playlist=%s)' %(sys.argv[0], urllib.quote_plus(playlist_name), urllib.quote_plus(str(playlist).replace(',','|'))))]
+                liz.addContextMenuItems(contextMenu_)
         ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz)
         return ok
 
@@ -719,5 +722,13 @@ elif mode==12:
 elif mode==13:
     print "play_playlist"
     play_playlist(name, playlist)
+
+elif mode==14:
+    print "get_xml_database"
+    get_xml_database(url)
+
+elif mode==15:
+    print "browse_xml_database"
+    get_xml_database(url, True)
 
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
