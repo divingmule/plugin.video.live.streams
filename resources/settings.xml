@@ -17,7 +17,7 @@
     <setting type="sep" />
   </category>
   <category label=".xml Database">
-    <setting type="action" label="Add .xml Database Sources" option="close" action="Container.Update(plugin://plugin.video.live.streams/?mode=14)" />
+    <setting type="action" label="Add .xml Database Sources" option="close" action="Container.Update(plugin://plugin.video.live.streams-regex/?mode=14)" />
     <setting id="browse_xml_database" type="bool" label="Browse and play from .xml Database" default="false"/>
   </category>
   <category label="General">
