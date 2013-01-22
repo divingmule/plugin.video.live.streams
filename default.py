@@ -91,26 +91,26 @@ def getSources():
                             genre = i['genre']
                         if i.has_key('credits'):
                             credits = i['credits']
-                        addDir(i['title'],i['url'],1,thumb,fanart,desc,genre,date,credits,'source')
+                        addDir(i['title'].encode('utf-8'),i['url'].encode('utf-8'),1,thumb,fanart,desc,genre,date,credits,'source')
 
             else:
                 if isinstance(sources[0], list):
                     getData(sources[0][1].encode('utf-8'),FANART)
                 else:
-                    getData(sources['url'], sources['fanart'])
+                    getData(sources[0]['url'], sources[0]['fanart'])
 
 
 def addSource(url=None):
         if url is None:
             if not addon.getSetting("new_file_source") == "":
-               source_url = addon.getSetting('new_file_source').encode('utf-8')
+               source_url = addon.getSetting('new_file_source').decode('utf-8')
             elif not addon.getSetting("new_url_source") == "":
-               source_url = addon.getSetting('new_url_source').encode('utf-8')
+               source_url = addon.getSetting('new_url_source').decode('utf-8')
         else:
             source_url = url
         if source_url == '' or source_url is None:
             return
-        addon_log('Adding New Source: '+source_url)
+        addon_log('Adding New Source: '+source_url.encode('utf-8'))
 
         media_info = None
         data = getSoup(source_url)
@@ -213,7 +213,7 @@ def get_xml_database(url, browse=False):
                             addDir(name,url+href,14,icon,fanart,'','','')
                     elif href.endswith('.xml'):
                         if browse:
-                            addDir(name,url+href,1,icon,fanart,'','','','download')
+                            addDir(name,url+href,1,icon,fanart,'','','','','download')
                         else:
                             if os.path.exists(source_file)==True:
                                 if name in SOURCES:
@@ -312,12 +312,13 @@ def getData(url,fanart):
                 except:
                     addon_log('There was a problem adding directory from getData(): '+name.encode('utf-8', 'ignore'))
         else:
+            addon_log('No Channels: getItems')
             getItems(soup('item'),fanart)
 
 
 def getChannelItems(name,url,fanart):
         soup = getSoup(url)
-        channel_list = soup.find('channel', attrs={'name' : name})
+        channel_list = soup.find('channel', attrs={'name' : name.decode('utf-8')})
         items = channel_list('item')
         try:
             fanArt = channel_list('fanart')[0].string
@@ -380,12 +381,14 @@ def getChannelItems(name,url,fanart):
 
 def getSubChannelItems(name,url,fanart):
         soup = getSoup(url)
-        channel_list = soup.find('subchannel', attrs={'name' : name})
+        channel_list = soup.find('subchannel', attrs={'name' : name.decode('utf-8')})
         items = channel_list('subitem')
         getItems(items,fanart)
 
 
 def getItems(items,fanart):
+        total = len(items)
+        addon_log('Total Items: %s' %total)
         for item in items:
             try:
                 name = item('title')[0].string
@@ -453,24 +456,22 @@ def getItems(items,fanart):
             except:
                 date = ''
 
-            try:
-                regexs = {}
-                for i in item('regex'):
-                    regexs[i('name')[0].string] = {}
-                    regexs[i('name')[0].string]['expre'] = i('expres')[0].string
-                    regexs[i('name')[0].string]['page'] = i('page')[0].string
-                    try:
-                        regexs[i('name')[0].string]['refer'] = i('referer')[0].string
-                    except:
-                        addon_log("Regex: -- No Referer --")
-                backUpUrl = url
+            regexs = None
+            if item('regex'):
                 try:
-                    url = getRegexParsed(regexs, url)
+                    regexs = {}
+                    for i in item('regex'):
+                        regexs[i('name')[0].string] = {}
+                        regexs[i('name')[0].string]['expre'] = i('expres')[0].string
+                        regexs[i('name')[0].string]['page'] = i('page')[0].string
+                        try:
+                            regexs[i('name')[0].string]['refer'] = i('referer')[0].string
+                        except:
+                            addon_log("Regex: -- No Referer --")
+                    regexs = urllib.quote(repr(regexs))
                 except:
-                    url = backUpUrl
-
-            except:
-                addon_log('regex Error: '+name)
+                    regexs = None
+                    addon_log('regex Error: '+name.encode('utf-8', 'ignore'))
 
             try:
                 if len(url) > 1:
@@ -481,38 +482,37 @@ def getItems(items,fanart):
                     if addon.getSetting('add_playlist') == "false":
                         for i in url:
                             alt += 1
-                            addLink(i,'%s) %s' %(alt, name.encode('utf-8', 'ignore')),thumbnail,fanArt,desc,genre,date,True,playlist)
+                            addLink(i,'%s) %s' %(alt, name.encode('utf-8', 'ignore')),thumbnail,fanArt,desc,genre,date,True,playlist,regexs,total)
                     else:
-                        addLink('', name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True,playlist)
+                        addLink('', name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True,playlist,regexs,total)
                 else:
-                    addLink(url[0],name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True)
+                    addLink(url[0],name.encode('utf-8', 'ignore'),thumbnail,fanArt,desc,genre,date,True,None,regexs,total)
             except:
                 addon_log('There was a problem adding item - '+name.encode('utf-8', 'ignore'))
 
 
 def getRegexParsed(regexs, url):
-        regexedUrls = []
+        regexs = eval(urllib.unquote(regexs))
         cachedPages = {}
-        for i in url:
-            doRegexs = re.compile('\$doregex\[([^\]]*)\]', re.DOTALL).findall(i)
-            for k in doRegexs:
-                if k in regexs:
-                    m = regexs[k]
-                    if m['page'] in cachedPages:
-                        link = cachedPages[m['page']]
-                    else:
-                        req = urllib2.Request(m['page'])
-                        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; rv:14.0) Gecko/20100101 Firefox/14.0.1')
-                        if 'refer' in m:
-                            req.add_header('Referer', m['refer'])
-                        response = urllib2.urlopen(req)
-                        link = response.read()
-                        response.close()
-                        cachedPages[m['page']] = link
-                    reg = re.compile(m['expre']).search(link)
-                    i = i.replace("$doregex[" + k + "]", reg.group(1).strip())
-            regexedUrls.append(i)
-        return regexedUrls
+        doRegexs = re.compile('\$doregex\[([^\]]*)\]').findall(url)
+        for k in doRegexs:
+            if k in regexs:
+                m = regexs[k]
+                if m['page'] in cachedPages:
+                    link = cachedPages[m['page']]
+                else:
+                    req = urllib2.Request(m['page'])
+                    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; rv:14.0) Gecko/20100101 Firefox/14.0.1')
+                    if 'refer' in m:
+                        req.add_header('Referer', m['refer'])
+                    response = urllib2.urlopen(req)
+                    link = response.read()
+                    response.close()
+                    cachedPages[m['page']] = link
+                reg = re.compile(m['expre']).search(link)
+                url = url.replace("$doregex[" + k + "]", reg.group(1).strip())
+        item = xbmcgui.ListItem(path=url)
+        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
 
 
 def get_params():
@@ -534,7 +534,9 @@ def get_params():
 
 
 def getFavorites():
-        for i in json.loads(open(favorites).read()):
+        items = json.loads(open(favorites).read())
+        total = len(items)
+        for i in items:
             name = i[0]
             url = i[1]
             iconimage = i[2]
@@ -547,20 +549,25 @@ def getFavorites():
                     fanArt = iconimage
                 else:
                     fanArt = fanart
+            try: playlist = i[5]
+            except: playlist = None
+            try: regexs = i[6]
+            except: regexs = None
+
             try:
                 if not i[4] == 0:
-                    addDir(name,url,i[4],iconimage,fanart,'','','','fav')
+                    addDir(name,url,i[4],iconimage,fanart,'','','','','fav')
                 else:
-                    addLink(url,name,iconimage,fanArt,'','','','fav')
+                    addLink(url,name,iconimage,fanArt,'','','','fav',playlist,regexs,total)
             except:
-                addLink(url,name,iconimage,fanArt,'','','','fav')
+                addLink(url,name,iconimage,fanArt,'','','','fav',playlist,regexs,total)
 
 
-def addFavorite(name,url,iconimage,fanart,mode):
+def addFavorite(name,url,iconimage,fanart,mode,playlist=None,regexs=None):
         favList = []
         if os.path.exists(favorites)==False:
             addon_log('Making Favorites File')
-            favList.append((name,url,iconimage,fanart,mode))
+            favList.append((name,url,iconimage,fanart,mode,playlist,regexs))
             a = open(favorites, "w")
             a.write(json.dumps(favList))
             a.close()
@@ -575,8 +582,7 @@ def addFavorite(name,url,iconimage,fanart,mode):
 
 
 def rmFavorite(name):
-        a = open(favorites).read()
-        data = json.loads(a)
+        data = json.loads(open(favorites).read())
         for index in range(len(data)):
             if data[index][0]==name:
                 del data[index]
@@ -639,23 +645,27 @@ def addDir(name,url,mode,iconimage,fanart,description,genre,date,credits,showcon
         return ok
 
 
-def addLink(url,name,iconimage,fanart,description,genre,date,showcontext=True,playlist=None):
+def addLink(url,name,iconimage,fanart,description,genre,date,showcontext,playlist,regexs,total):
+        ok = True
+        if regexs: mode = '17'
+        else: mode = '12'
         u=sys.argv[0]+"?"
-        if not playlist is None:
+        if playlist:
             if addon.getSetting('add_playlist') == "false":
-                u += "url="+urllib.quote_plus(url)+"&mode=12"
+                u += "url="+urllib.quote_plus(url)+"&mode="+mode
             else:
-                u += "mode=13&name=%s&playlist=%s" %(urllib.quote_plus(name), urllib.quote_plus(str(playlist).replace(',','|')))
+                u += "mode=%s&name=%s&playlist=%s" %(mode, urllib.quote_plus(name), urllib.quote_plus(str(playlist).replace(',','|')))
         else:
-            u += "url="+urllib.quote_plus(url)+"&mode=12"
-        ok=True
+            u += "url="+urllib.quote_plus(url)+"&mode="+mode
+        if regexs:
+            u += "&regexs="+regexs
         if date == '':
             date = None
         else:
             description += '\n\nDate: %s' %date
         liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
-        liz.setInfo( type="Video", infoLabels={ "Title": name, "Plot": description, "Genre": genre, "dateadded": date } )
-        liz.setProperty( "Fanart_Image", fanart )
+        liz.setInfo(type="Video", infoLabels={ "Title": name, "Plot": description, "Genre": genre, "dateadded": date })
+        liz.setProperty("Fanart_Image", fanart)
         liz.setProperty('IsPlayable', 'true')
         if showcontext:
             contextMenu = []
@@ -665,10 +675,15 @@ def addLink(url,name,iconimage,fanart,description,genre,date,showcontext=True,pl
                      %(sys.argv[0], urllib.quote_plus(name)))
                      )
             elif not name in FAV:
-                contextMenu.append(
-                    ('Add to LiveStreams Favorites','XBMC.RunPlugin(%s?mode=5&name=%s&url=%s&iconimage=%s&fanart=%s&fav_mode=0)'
-                     %(sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(url), urllib.quote_plus(iconimage), urllib.quote_plus(fanart)))
-                     )
+                fav_params = (
+                    '%s?mode=5&name=%s&url=%s&iconimage=%s&fanart=%s&fav_mode=0'
+                    %(sys.argv[0], urllib.quote_plus(name), urllib.quote_plus(url), urllib.quote_plus(iconimage), urllib.quote_plus(fanart))
+                    )
+                if playlist:
+                    fav_params += 'playlist='+urllib.quote_plus(str(playlist).replace(',','|'))
+                if regexs:
+                    fav_params += "&regexs="+regexs
+                contextMenu.append(('Add to LiveStreams Favorites','XBMC.RunPlugin(%s)' %fav_params))
             liz.addContextMenuItems(contextMenu)
         if not playlist is None:
             if addon.getSetting('add_playlist') == "false":
@@ -678,7 +693,7 @@ def addLink(url,name,iconimage,fanart,description,genre,date,showcontext=True,pl
                      %(sys.argv[0], urllib.quote_plus(playlist_name), urllib.quote_plus(str(playlist).replace(',','|'))))
                      ]
                 liz.addContextMenuItems(contextMenu_)
-        ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz)
+        ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,totalItems=total)
         return ok
 
 
@@ -729,6 +744,7 @@ iconimage=None
 fanart=FANART
 playlist=None
 fav_mode=None
+regexs=None
 
 try:
     url=urllib.unquote_plus(params["url"]).decode('utf-8')
@@ -756,6 +772,10 @@ except:
     pass
 try:
     fav_mode=int(params["fav_mode"])
+except:
+    pass
+try:
+    regexs=params["regexs"]
 except:
     pass
 
@@ -848,5 +868,9 @@ elif mode==15:
 elif mode==16:
     addon_log("browse_community")
     getCommunitySources(True)
+
+elif mode==17:
+    addon_log("getRegexParsed")
+    getRegexParsed(regexs, url)
 
 xbmcplugin.endOfDirectory(int(sys.argv[1]))

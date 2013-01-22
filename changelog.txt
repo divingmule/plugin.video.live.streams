@@ -1,3 +1,9 @@
+Version 1.0.9
+fix script error when having only one source
+fix decode errors with non ascii characters in list-item
+fix downloading of files from the xml database
+changed the regex function to be executed when selecting the list-item instead of when adding the list-item
+
 Version 1.0.8
 downloading of files is now done via the context menu
 you can now add media info to a file that will be shown while viewing the list of sources
