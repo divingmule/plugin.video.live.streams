@@ -730,7 +730,7 @@ def get_epg(url, regex):
             item = re.findall(regex, data)[0]
             return item
         except:
-            addon_log(print_exc())
+            addon_log('regex failed')
             addon_log(regex)
             return
 
