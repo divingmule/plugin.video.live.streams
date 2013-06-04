@@ -62,7 +62,7 @@ def getSources():
         if os.path.exists(favorites) == True:
             addDir('Favorites','url',4,os.path.join(home, 'resources', 'favorite.png'),FANART,'','','','')
         if addon.getSetting("browse_xml_database") == "true":
-            addDir('XML Database','http://xbmcplus.xb.funpic.de/up/data/files/',15,icon,FANART,'','','','')
+            addDir('XML Database','http://xbmcplus.xb.funpic.de/www-data/filesystem/',15,icon,FANART,'','','','')
         if addon.getSetting("browse_community") == "true":
             addDir('Community Files','community_files',16,icon,FANART,'','','','')
         if os.path.exists(source_file)==True:
@@ -199,7 +199,7 @@ def rmSource(name):
 
 def get_xml_database(url, browse=False):
         if url is None:
-            url = 'http://xbmcplus.xb.funpic.de/up/data/files/'
+            url = 'http://xbmcplus.xb.funpic.de/www-data/filesystem/'
         soup = BeautifulSoup(makeRequest(url), convertEntities=BeautifulSoup.HTML_ENTITIES)
         for i in soup('a'):
             href = i['href']
