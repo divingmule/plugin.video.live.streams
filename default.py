@@ -40,9 +40,11 @@ def addon_log(string):
         xbmc.log("[addon.live.streams-%s]: %s" %(addon_version, string))
 
 
-def makeRequest(url):
+def makeRequest(url, headers=None):
         try:
-            req = urllib2.Request(url)
+            if headers is None:
+                headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:19.0) Gecko/20100101 Firefox/19.0'}
+            req = urllib2.Request(url,None,headers)
             response = urllib2.urlopen(req)
             data = response.read()
             response.close()
@@ -94,10 +96,11 @@ def getSources():
                         addDir(i['title'].encode('utf-8'),i['url'].encode('utf-8'),1,thumb,fanart,desc,genre,date,credits,'source')
 
             else:
-                if isinstance(sources[0], list):
-                    getData(sources[0][1].encode('utf-8'),FANART)
-                else:
-                    getData(sources[0]['url'], sources[0]['fanart'])
+                if len(sources) == 1:
+                    if isinstance(sources[0], list):
+                        getData(sources[0][1].encode('utf-8'),FANART)
+                    else:
+                        getData(sources[0]['url'], sources[0]['fanart'])
 
 
 def addSource(url=None):
@@ -399,7 +402,14 @@ def getItems(items,fanart):
                 name = ''
             try:
                 if item('epg'):
-                    if item('epg')[0].string > 1:
+                    if item.epg_url:
+                        addon_log('Get EPG Regex')
+                        epg_url = item.epg_url.string
+                        epg_regex = item.epg_regex.string
+                        epg_name = get_epg(epg_url, epg_regex)
+                        if epg_name:
+                            name += ' - ' + epg_name
+                    elif item('epg')[0].string > 1:
                         name += getepg(item('epg')[0].string)
                 else:
                     pass
@@ -554,13 +564,10 @@ def getFavorites():
             try: regexs = i[6]
             except: regexs = None
 
-            try:
-                if not i[4] == 0:
-                    addDir(name,url,i[4],iconimage,fanart,'','','','','fav')
-                else:
-                    addLink(url,name,iconimage,fanArt,'','','','fav',playlist,regexs,total)
-            except:
+            if i[4] == 0:
                 addLink(url,name,iconimage,fanArt,'','','','fav',playlist,regexs,total)
+            else:
+                addDir(name,url,i[4],iconimage,fanart,'','','','','fav')
 
 
 def addFavorite(name,url,iconimage,fanart,mode,playlist=None,regexs=None):
@@ -714,9 +721,18 @@ def getepg(link):
         sourcetitle = source3[2].split("</a></p></div>")
         nowtitle = sourcetitle[0][17:len(sourcetitle[0])]
         nowtitle = nowtitle.encode('utf-8')
-        nowtitle = nowtitle.encode('utf-8')
-        nowtitle = nowtitle.encode('utf-8')
         return "  - "+nowtitle+" - "+nowtime
+
+
+def get_epg(url, regex):
+        data = makeRequest(url)
+        try:
+            item = re.findall(regex, data)[0]
+            return item
+        except:
+            addon_log(print_exc())
+            addon_log(regex)
+            return
 
 
 xbmcplugin.setContent(int(sys.argv[1]), 'movies')
@@ -791,22 +807,27 @@ addon_log("Name: "+str(name))
 if mode==None:
     addon_log("getSources")
     getSources()
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==1:
     addon_log("getData")
     getData(url,fanart)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==2:
     addon_log("getChannelItems")
     getChannelItems(name,url,fanart)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==3:
     addon_log("getSubChannelItems")
     getSubChannelItems(name,url,fanart)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==4:
     addon_log("getFavorites")
     getFavorites()
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==5:
     addon_log("addFavorite")
@@ -864,17 +885,18 @@ elif mode==13:
 elif mode==14:
     addon_log("get_xml_database")
     get_xml_database(url)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==15:
     addon_log("browse_xml_database")
     get_xml_database(url, True)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==16:
     addon_log("browse_community")
     getCommunitySources(True)
+    xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 elif mode==17:
     addon_log("getRegexParsed")
     getRegexParsed(regexs, url)
-
-xbmcplugin.endOfDirectory(int(sys.argv[1]))
