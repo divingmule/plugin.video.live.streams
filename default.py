@@ -646,6 +646,7 @@ def addDir(name,url,mode,iconimage,fanart,description,genre,date,credits,showcon
 
 
 def addLink(url,name,iconimage,fanart,description,genre,date,showcontext,playlist,regexs,total):
+        name = name.encode('utf-8')
         ok = True
         if regexs: mode = '17'
         else: mode = '12'
