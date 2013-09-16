@@ -482,6 +482,14 @@ def getItems(items,fanart):
                             regexs[i('name')[0].string]['agent'] = i('agent')[0].string
                         except:
                             addon_log("Regex: -- No User Agent --")
+                        try:
+                            regexs[i('name')[0].string]['data'] = i('data')[0].string
+                        except:
+                            addon_log("Regex: -- No data --")
+                        try:
+                            regexs[i('name')[0].string]['function'] = i('function')[0].string
+                        except:
+                            addon_log("Regex: -- No function --")
                     regexs = urllib.quote(repr(regexs))
                 except:
                     regexs = None
@@ -521,12 +529,18 @@ def getRegexParsed(regexs, url):
                         req.add_header('Referer', m['refer'])
                     if 'agent' in m:
                         req.add_header('User-agent', m['agent'])
+                    if 'data' in m:
+                        req.add_data(m['data'])
                     response = urllib2.urlopen(req)
                     link = response.read()
                     response.close()
                     cachedPages[m['page']] = link
                 reg = re.compile(m['expre']).search(link)
-                url = url.replace("$doregex[" + k + "]", reg.group(1).strip())
+                data = reg.group(1).strip()
+                if m['function']:
+                    if m['function'] == 'unquote':
+                        data = urllib.unquote(data)
+                url = url.replace("$doregex[" + k + "]", data)
         item = xbmcgui.ListItem(path=url)
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
 
