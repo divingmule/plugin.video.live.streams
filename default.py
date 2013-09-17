@@ -539,7 +539,9 @@ def getRegexParsed(regexs, url):
                 data = reg.group(1).strip()
                 if m['function']:
                     if m['function'] == 'unquote':
+                        addon_log('Reg data: %s' %data):
                         data = urllib.unquote(data)
+                        addon_log('Reg urllib.unquote(data): %s' %data)
                 url = url.replace("$doregex[" + k + "]", data)
         item = xbmcgui.ListItem(path=url)
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
