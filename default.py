@@ -533,6 +533,8 @@ def getRegexParsed(regexs, url):
                         req.add_data(m['data'])
                     response = urllib2.urlopen(req)
                     link = response.read()
+                    response_url = response.geturl()
+                    link += response_url
                     response.close()
                     cachedPages[m['page']] = link
                 reg = re.compile(m['expre']).search(link)
