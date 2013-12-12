@@ -514,6 +514,7 @@ def getItems(items,fanart):
 
 
 def getRegexParsed(regexs, url):
+        addon_log('get regexs: %s' %url)
         regexs = eval(urllib.unquote(regexs))
         cachedPages = {}
         doRegexs = re.compile('\$doregex\[([^\]]*)\]').findall(url)
@@ -539,11 +540,10 @@ def getRegexParsed(regexs, url):
                     cachedPages[m['page']] = link
                 reg = re.compile(m['expre']).search(link)
                 data = reg.group(1).strip()
-                if m['function']:
-                    if m['function'] == 'unquote':
-                        addon_log('Reg data: %s' %data)
-                        data = urllib.unquote(data)
-                        addon_log('Reg urllib.unquote(data): %s' %data)
+                if m.has_key('function') and m['function'] == 'unquote':
+                    addon_log('Reg data: %s' %data)
+                    data = urllib.unquote(data)
+                    addon_log('Reg urllib.unquote(data): %s' %data)
                 url = url.replace("$doregex[" + k + "]", data)
         item = xbmcgui.ListItem(path=url)
         xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
